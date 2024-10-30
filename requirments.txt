@@ -1,0 +1,19 @@
+# Deep Learning Framework
+torch==2.1.0
+torchvision==0.16.0
+
+# Web Framework
+fastapi==0.109.0
+uvicorn==0.27.0
+python-multipart==0.0.6
+
+# Image Processing
+Pillow==10.0.0
+
+# Utility
+numpy==1.24.3
+python-dotenv==1.0.0
+pydantic==2.5.2
+
+# Logging
+logging==0.5.1.2
