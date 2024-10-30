@@ -82,7 +82,7 @@ def load_models():
         model = PneumoniaModelModified(num_classes=4, input_features=1536)
         # 체크포인트 존재 여부 확인
         if os.path.exists('./checkpoint/best_model.pth'):
-            model.load_state_dict(torch.load('best_model.pth', map_location=device))
+            model.load_state_dict(torch.load('./checkpoint/best_model.pth', map_location=device))
             logger.info("Checkpoint loaded successfully")
         else:
             logger.warning("No checkpoint found, using initialized weights")
