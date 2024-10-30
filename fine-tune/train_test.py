@@ -59,23 +59,33 @@ class FeatureDataset(Dataset):
 
     def __getitem__(self, idx):
         return self.features[idx], self.labels[idx]
-
-class PneumoniaModel(nn.Module):
+    
+class PneumoniaModelModified(nn.Module):
     def __init__(self, num_classes=4, input_features=1536):
-        super(PneumoniaModel, self).__init__()
+        super(PneumoniaModelModified, self).__init__()
+        
+        # 입력으로 들어오는 데이터는 이미:
+        # 1. EfficientNet으로 특징 추출 완료
+        # 2. 평균 풀링 적용 완료
+        # 3. 평탄화(flatten) 완료
+        # 4. 크기: [batch_size, 1536]
         
         self.classifier = nn.Sequential(
-            nn.Linear(input_features, 1024),
+            nn.Linear(input_features, 512),  # 1536 -> 512
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.5),
+            nn.Linear(512, 256),            # 512 -> 256
+            nn.BatchNorm1d(256),
             nn.ReLU(),
             nn.Dropout(0.3),
-            nn.Linear(1024, 512),
-            nn.ReLU(),
-            nn.Dropout(0.2),
-            nn.Linear(512, num_classes)
+            nn.Linear(256, num_classes)     # 256 -> num_classes
         )
 
     def forward(self, x):
-        return self.classifier(x)
+        # x의 예상 shape: [batch_size, 1536]
+        x = self.classifier(x)
+        return x
 
 def setup_directories(data_directory, writable_directory, train_directory, val_directory):
     """데이터 디렉토리 설정 및 초기화"""
@@ -240,6 +250,9 @@ def evaluate_model(model, test_loader, device="cuda"):
     all_preds = []
     all_labels = []
     
+    # 클래스 이름 매핑
+    class_names = ['COVID-19', 'Bacterial Pneumonia', 'Viral Pneumonia', 'Normal']
+    
     with torch.no_grad():
         for inputs, labels in test_loader:
             inputs = inputs.to(device)
@@ -250,14 +263,22 @@ def evaluate_model(model, test_loader, device="cuda"):
             all_labels.extend(labels.cpu().numpy())
     
     print("\nClassification Report:")
-    print(classification_report(all_labels, all_preds))
+    print(classification_report(all_labels, all_preds, target_names=class_names))
     
+    # Confusion Matrix 생성
     cm = confusion_matrix(all_labels, all_preds)
+    
+    # Plot 설정
     plt.figure(figsize=(10, 8))
-    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues')
+    sns.heatmap(cm, annot=True, fmt='d', cmap='Blues',
+                xticklabels=class_names,
+                yticklabels=class_names)
     plt.xlabel('Predicted Labels')
     plt.ylabel('True Labels')
     plt.title('Confusion Matrix')
+    
+    # 레이블이 잘리는 것을 방지
+    plt.tight_layout()
     plt.show()
 
 def main():
@@ -302,9 +323,13 @@ def main():
     
     # 모델 생성
     num_classes = len(set(y_train))
-    model = PneumoniaModel(num_classes=num_classes, input_features=X_resampled.shape[1])
+    input_features = X_resampled.shape[1]  # 1536
+    model = PneumoniaModelModified(
+        num_classes=num_classes,
+        input_features=input_features
+    )
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), lr=0.001)
     
     # 모델 학습
     print("\nStarting model training...")
